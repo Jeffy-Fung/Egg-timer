@@ -1,43 +1,20 @@
 "use client";
 
 import Link from "next/link";
-
-const eggMethods = [
-  {
-    id: "boiled",
-    name: "Boiled Egg",
-    description: "Perfect hard or soft boiled eggs",
-    time: "6-12 minutes",
-    color: "bg-blue-500",
-    icon: "🥚"
-  },
-  {
-    id: "poached",
-    name: "Poached Egg",
-    description: "Delicate poached eggs with runny yolk",
-    time: "3-4 minutes",
-    color: "bg-green-500",
-    icon: "🍳"
-  },
-  {
-    id: "fried",
-    name: "Fried Egg",
-    description: "Sunny side up or over easy",
-    time: "2-3 minutes",
-    color: "bg-yellow-500",
-    icon: "🍳"
-  },
-  {
-    id: "scrambled",
-    name: "Scrambled Egg",
-    description: "Fluffy and creamy scrambled eggs",
-    time: "3-5 minutes",
-    color: "bg-orange-500",
-    icon: "🥚"
-  }
-];
+import { getAllEggMethods, getEggMethodKeys } from "@/data/eggMethods";
 
 export default function Home() {
+  const eggMethods = getAllEggMethods();
+  const methodKeys = getEggMethodKeys();
+
+  // Helper function to get time range for display
+  const getTimeRange = (options: { time: number }[]) => {
+    const times = options.map(opt => opt.time);
+    const min = Math.min(...times);
+    const max = Math.max(...times);
+    return min === max ? `${min} minutes` : `${min}-${max} minutes`;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-orange-100 p-4">
       <div className="max-w-4xl mx-auto">
@@ -49,10 +26,10 @@ export default function Home() {
 
         {/* Egg Methods Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {eggMethods.map((method) => (
+          {eggMethods.map((method, index) => (
             <Link
-              key={method.id}
-              href={`/timer/${method.id}`}
+              key={methodKeys[index]}
+              href={`/timer/${methodKeys[index]}`}
               className="group block"
             >
               <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 p-6 border border-gray-100">
@@ -65,10 +42,10 @@ export default function Home() {
                       {method.name}
                     </h2>
                     <p className="text-gray-600 text-sm mt-1">
-                      {method.description}
+                      {method.options[0]?.description || "Perfect cooking method"}
                     </p>
                     <p className="text-blue-500 font-medium text-sm mt-2">
-                      ⏱️ {method.time}
+                      ⏱️ {getTimeRange(method.options)}
                     </p>
                   </div>
                   <div className="text-gray-400 group-hover:text-blue-500 transition-colors">

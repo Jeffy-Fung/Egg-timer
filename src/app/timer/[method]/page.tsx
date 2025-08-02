@@ -1,161 +1,38 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-
-const eggMethods = {
-  boiled: {
-    name: "Boiled Egg",
-    icon: "🥚",
-    color: "bg-blue-500",
-    options: [
-      { name: "Soft Boiled", time: 6, description: "Runny yolk, firm white" },
-      { name: "Medium Boiled", time: 8, description: "Slightly runny yolk" },
-      { name: "Hard Boiled", time: 12, description: "Firm yolk and white" }
-    ],
-    tips: [
-      "Use room temperature eggs for more consistent results",
-      "Add a pinch of salt to the water to prevent cracking",
-      "Start timing after the water comes to a rolling boil",
-      "For easy peeling, cool eggs in ice water after cooking"
-    ]
-  },
-  poached: {
-    name: "Poached Egg",
-    icon: "🍳",
-    color: "bg-green-500",
-    options: [
-      { name: "Runny Yolk", time: 3, description: "Perfect for eggs benedict" },
-      { name: "Firm Yolk", time: 4, description: "More set yolk" }
-    ],
-    tips: [
-      "Use fresh eggs - they hold their shape better",
-      "Add a splash of vinegar to help the egg white coagulate",
-      "Create a gentle whirlpool in the water before adding the egg",
-      "Use a slotted spoon to remove the egg from water"
-    ]
-  },
-  fried: {
-    name: "Fried Egg",
-    icon: "🍳",
-    color: "bg-yellow-500",
-    options: [
-      { name: "Sunny Side Up", time: 2, description: "Runny yolk, crispy edges" },
-      { name: "Over Easy", time: 3, description: "Flipped once, runny yolk" },
-      { name: "Over Medium", time: 4, description: "Flipped, semi-runny yolk" }
-    ],
-    tips: [
-      "Use a non-stick pan or well-seasoned cast iron",
-      "Heat the pan over medium heat before adding oil",
-      "Crack the egg into a small bowl first, then slide into pan",
-      "For over easy/medium, flip gently to avoid breaking the yolk"
-    ]
-  },
-  scrambled: {
-    name: "Scrambled Egg",
-    icon: "🥚",
-    color: "bg-orange-500",
-    options: [
-      { name: "Soft & Creamy", time: 3, description: "Moist and fluffy" },
-      { name: "Firm", time: 5, description: "Well-cooked and dry" }
-    ],
-    tips: [
-      "Whisk eggs with a splash of milk or cream for creamier texture",
-      "Cook over low to medium heat for best results",
-      "Stir constantly with a rubber spatula for even cooking",
-      "Remove from heat just before fully cooked - eggs continue cooking"
-    ]
-  }
-};
+import { getEggMethod, isValidEggMethod, type EggMethodKey } from "@/data/eggMethods";
+import { useEggTimer } from "@/hooks/useEggTimer";
+import { formatTime } from "@/utils/timeUtils";
 
 export default function TimerPage() {
   const params = useParams();
-  const method = params.method as keyof typeof eggMethods;
+  const method = params.method as string;
   const [selectedOption, setSelectedOption] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  const currentMethod = eggMethods[method];
+  // Get current method data (will be undefined if invalid)
+  const currentMethod = isValidEggMethod(method) ? getEggMethod(method as EggMethodKey) : undefined;
   const currentOption = currentMethod?.options[selectedOption];
 
-  // Create audio context for notifications
-  const playNotificationSound = useCallback(() => {
-    if (!soundEnabled) return;
-    
-    try {
-      const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const audioContext = new AudioContextClass();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
-      
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.5);
-    } catch (error) {
-      console.log('Audio notification failed:', error);
-    }
-  }, [soundEnabled]);
+  // Use the custom timer hook (always call it, but with fallback values)
+  const {
+    timeLeft,
+    isRunning,
+    isComplete,
+    progress,
+    startTimer,
+    stopTimer,
+    resetTimer,
+    updateOption
+  } = useEggTimer({
+    initialOption: currentOption || { name: "", time: 0, description: "" },
+    soundEnabled
+  });
 
-  const startTimer = useCallback(() => {
-    if (!currentOption) return;
-    setTimeLeft(currentOption.time * 60);
-    setIsRunning(true);
-    setIsComplete(false);
-  }, [currentOption]);
-
-  const stopTimer = () => {
-    setIsRunning(false);
-    setTimeLeft(0);
-    setIsComplete(false);
-  };
-
-  const resetTimer = () => {
-    if (!currentOption) return;
-    setTimeLeft(currentOption.time * 60);
-    setIsRunning(false);
-    setIsComplete(false);
-  };
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (isRunning && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            setIsRunning(false);
-            setIsComplete(true);
-            playNotificationSound();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-
-    return () => clearInterval(interval);
-  }, [isRunning, timeLeft, playNotificationSound]);
-
-  useEffect(() => {
-    if (currentOption) {
-      setTimeLeft(currentOption.time * 60);
-      setIsRunning(false);
-      setIsComplete(false);
-    }
-  }, [currentOption]);
-
+  // Validate method and show error if invalid
   if (!currentMethod) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-orange-100 flex items-center justify-center">
@@ -169,13 +46,11 @@ export default function TimerPage() {
     );
   }
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  // Update timer when option changes
+  const handleOptionChange = (index: number) => {
+    setSelectedOption(index);
+    updateOption(currentMethod.options[index]);
   };
-
-  const progress = currentOption ? ((currentOption.time * 60 - timeLeft) / (currentOption.time * 60)) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-orange-100 p-4">
@@ -298,7 +173,7 @@ export default function TimerPage() {
             {currentMethod.options.map((option, index) => (
               <button
                 key={index}
-                onClick={() => setSelectedOption(index)}
+                onClick={() => handleOptionChange(index)}
                 className={`p-4 rounded-lg border-2 transition-all ${
                   selectedOption === index
                     ? 'border-blue-500 bg-blue-50'
